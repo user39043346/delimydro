@@ -1,0 +1,313 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "github.com/user39043346/delimydro/proto/api";
+
+import "google/protobuf/timestamp.proto";
+
+service Service {
+    rpc Register(RegisterRequest) returns (Token);
+    rpc Login(LoginRequest) returns (Token);
+    rpc RenewToken(Empty) returns (Token);
+
+    rpc SearchFriend(SearchFriendRequest) returns (SearchFriendResponse);
+    rpc AddFriend(AddFriendRequest) returns (Empty);
+    rpc ListMyFriends(Empty) returns (ListMyFriendsResponse);
+    rpc CreateFriendExpense(CreateFriendExpenseRequest) returns (Empty);
+    rpc DeleteFriendExpense(DeleteFriendExpenseRequest) returns (Empty);
+    rpc ListFriendsExpenses(ListFriendsExpensesRequest) returns (ListFriendsExpensesResponse);
+    rpc FriendSettleUp(FriendSettleUpRequest) returns (Empty);
+
+    rpc SearchUser(SearchUserRequest) returns (SearchUserResponse);
+    rpc GetUsersWithOutstandingBalance(Empty) returns (GetUsersWithOutstandingBalanceResponse);
+    rpc GetUserGroupsDistribution(GetUserGroupsDistributionRequest) returns (GetUserGroupsDistributionResponse);
+    
+    rpc SearchGroup(SearchGroupRequest) returns (SearchGroupResponse);
+    rpc CreateGroupExpense(CreateGroupExpenseRequest) returns (Empty);
+    rpc DeleteGroupExpense(DeleteGroupExpenseRequest) returns (Empty);
+    rpc ListGroupExpenses(ListGroupExpensesRequest) returns (ListGroupExpensesResponse);
+    rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+    rpc DeleteGroup(DeleteGroupRequest) returns (Empty);
+    rpc GetGroup(GetGroupRequest) returns (GetGroupResponse);
+    rpc ChangeGroupType(ChangeGroupTypeRequest) returns (Empty);
+    rpc GetGroupBalances(GetGroupBalancesRequest) returns (GetGroupBalancesResponse);
+    rpc AddUsersToGroup(AddUsersToGroupRequest) returns (Empty);
+    rpc GetGroupUsers(GetGroupUsersRequest) returns (GetGroupUsersResponse);
+    rpc GroupSettleUp(GroupSettleUpRequest) returns (Empty);
+    rpc GetUserPayersDebtorsInGroup(GetUserPayersDebtorsInGroupRequest) returns (GetUserPayersDebtorsInGroupResponse);
+    rpc CheckUserInGroup(CheckUserInGroupRequest) returns (CheckUserInGroupResponse);
+
+    rpc MyProfile(Empty) returns (MyProfileResponse);
+    rpc ListMyGroups(Empty) returns (ListMyGroupsResponse);
+    rpc LeaveGroup(LeaveGroupRequest) returns (Empty);
+    rpc JoinGroup(JoinGroupRequest) returns (Empty);
+
+    rpc ExpenseInfo(ExpenseInfoRequest) returns (ExpenseInfoResponse);
+
+}
+
+message Token {
+    string token = 1;
+}
+
+message Empty {}
+
+message SearchGroupRequest {
+    string invite_code = 1;
+}
+
+message SearchGroupResponse {
+    Group group = 1;
+}
+
+message RegisterRequest {
+    string username   = 1;
+    string password   = 2;
+    string image_path = 3;
+}
+
+message RegisterResponse {
+    string token = 1;
+}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+}
+
+message AddFriendRequest {
+    string code = 1;
+}
+
+message ListMyFriendsResponse {
+    repeated User friends = 1;
+}
+
+message SearchFriendRequest {
+    string prefix = 1;
+}
+
+message SearchFriendResponse {
+    repeated User friends = 2;
+}
+
+message SearchUserRequest {
+    string code = 1;
+}
+
+message SearchUserResponse {
+    User user = 1;
+}
+
+message CreateFriendExpenseRequest {
+    string friend_id = 1;
+    string expense_name = 2;
+    int64  amount = 3;
+    bool   friend_is_debtor = 4;
+}
+
+message DeleteFriendExpenseRequest {
+    string expense_id = 1;
+    string friend_id = 2;
+}
+
+message Expense {
+    string id = 1;
+    string name = 2;
+    string payer_name = 3;
+    string payer_image_path = 4;
+    string debtor_name = 5;
+    int64  total_paid = 6;
+    int64  type = 7;
+    int64  my_diff = 8;
+    google.protobuf.Timestamp time = 9;
+}
+
+message ListFriendsExpensesRequest {
+    int64 n = 1;
+    int64 offset = 2;
+}
+
+message ListFriendsExpensesResponse {
+    repeated Expense expenses = 1;
+}
+
+message FriendSettleUpRequest {
+    string friend_id = 1;
+    int64  amount = 2;
+    bool   friend_pays = 3;
+}
+
+message User {
+    string id = 1;
+    string username = 2;
+    string image_path = 3;
+    int64  balance = 4;
+    string code = 5;
+}
+
+message GetUsersWithOutstandingBalanceResponse {
+    repeated User debtors = 1;
+    repeated User payers = 2;
+}
+
+message GetUserGroupsDistributionRequest {
+    string user_id = 1;
+}
+
+message Group {
+    string id = 1;
+    string name = 2;
+    string image_path = 3;
+    int64  balance = 4;
+    int64  type = 5;
+    string invite_code = 6;
+}
+
+message GetUserGroupsDistributionResponse {
+    repeated Group user_is_debtor = 1;
+    repeated Group user_is_payer = 2;
+    int64 non_group_balance = 3;
+}
+
+message Diff {
+    string user_id = 1;
+    int64  diff = 2;
+}
+
+message SearchGroupMemberRequest {
+    string group_id = 1;
+    string prefix = 2;
+}
+
+message SearchGroupMemberResponse {
+    repeated User users = 1;
+}
+
+message CreateGroupExpenseRequest {
+    string group_id = 1;
+    string expense_name = 2;
+    repeated Diff payers = 3;
+    repeated Diff debtors = 4;
+}
+
+message DeleteGroupExpenseRequest {
+    string expense_id = 1;
+    string group_id = 2;
+}
+
+message ListGroupExpensesRequest {
+    int64  n = 1;
+    int64  offset = 2;
+    string group_id = 3;
+}
+
+message ListGroupExpensesResponse {
+    repeated Expense expenses = 1;
+}
+
+message GetGroupBalancesRequest {
+    string group_id = 1;
+}
+
+message GetGroupBalancesResponse {
+    repeated User users = 1;
+}
+
+message AddUsersToGroupRequest {
+    string group_id = 1;
+    repeated string users_ids = 2;
+}
+
+message GetGroupUsersRequest {
+    string group_id = 1;
+}
+
+message GetGroupUsersResponse {
+    repeated User users = 1;
+}
+
+message CreateGroupRequest {
+    string name = 1;
+    string image_path = 2;
+    int64  type = 3;
+    repeated string users_ids = 4;
+}
+
+message CreateGroupResponse {
+    string group_id = 1;
+}
+
+message DeleteGroupRequest {
+    string group_id = 1;
+}
+
+message GetGroupRequest {
+    string group_id = 1;
+}
+
+message GetGroupResponse {
+    Group group = 1;
+}
+
+message ChangeGroupTypeRequest {
+    string group_id = 1;
+    int64  new_type = 2;
+}
+
+message GroupSettleUpRequest {
+    string group_id = 1;
+    string payer_id = 2;
+    string debtor_id = 3;
+    int64  amount = 4;
+}
+
+message GetUserPayersDebtorsInGroupRequest {
+    string group_id = 1;
+    string user_id = 2;
+}
+
+message GetUserPayersDebtorsInGroupResponse {
+    repeated User debtors = 1;
+    repeated User payers = 2;
+}
+
+message CheckUserInGroupRequest {
+    string group_id = 1;
+    string user_id = 2;
+}
+
+message CheckUserInGroupResponse {
+    bool result = 1;
+}
+
+message MyProfileResponse {
+    User user = 1;
+    repeated Group groups = 2;
+    repeated User friends = 3;
+}
+
+message ListMyGroupsResponse {
+    repeated Group groups = 1;
+}
+
+message LeaveGroupRequest {
+    string group_id = 1;
+}
+
+message JoinGroupRequest {
+    string invite_code = 1;
+}
+
+message ExpenseInfoRequest {
+    string expense_id = 1;
+}
+
+message ExpenseInfoResponse {
+    repeated User users_distribution = 1;
+}
