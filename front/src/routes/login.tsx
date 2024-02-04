@@ -21,7 +21,6 @@ export default function Login({ callback }: { callback: (token: string) => void 
   const login = async () => {
     try {
       const resp = await serviceUnauthorizedClient.login({ username: username, password: password });
-      console.log(resp.token);
       callback(resp.token);
     } catch (e: unknown) {
       errorContext?.showError(e);

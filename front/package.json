@@ -13,6 +13,7 @@
     "@protobuf-ts/plugin": "^2.9.3",
     "grpc-web": "^1.5.0",
     "long": "^5.2.3",
+    "nice-grpc-common": "^2.0.2",
     "nice-grpc-web": "^3.3.2",
     "protobufjs": "^7.2.6",
     "react": "^18.2.0",

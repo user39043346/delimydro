@@ -149,7 +149,6 @@ export default function AddExpense({
       b.balances[idx] = false;
       b.cnt -= 1;
     }
-    console.log(b, eqBalances);
     setEqBalances(b);
   };
 

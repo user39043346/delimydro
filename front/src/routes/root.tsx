@@ -48,9 +48,7 @@ export default function Root() {
 
   const fetchMyProfile = useCallback(async () => {
     try {
-      const dateTime = new Date();
       const me = await client.myProfile({});
-      console.log(me, new Date().getTime() - dateTime.getTime());
       return me;
     } catch (e) {
       errorContext.current?.showError(e);
