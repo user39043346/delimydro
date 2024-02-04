@@ -18,16 +18,15 @@ func (s *Server) ExpenseInfo(ctx context.Context, req *pb.ExpenseInfoRequest) (*
 	}
 	defer tx.Rollback()
 
-	rows, err := tx.QueryxContext(ctx, `SELECT users.id, users.username, diff AS balance FROM expense_items
-											JOIN users ON users.id=user_id WHERE expense_id=$1`, req.ExpenseId)
+	rows, err := tx.QueryxContext(ctx, `SELECT payer_id, debtor_id, amount FROM expense_items WHERE expense_id=$1`, req.ExpenseId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Couldn't get expense")
 	}
 	defer rows.Close()
 
-	var usersDistribution []*pb.User
+	var usersDistribution []*pb.Debt
 	for rows.Next() {
-		var x models.User
+		var x models.Debt
 		if err := rows.StructScan(&x); err != nil {
 			return nil, status.Errorf(codes.Internal, "Couldn't get expense")
 		}

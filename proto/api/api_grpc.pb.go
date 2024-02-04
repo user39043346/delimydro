@@ -48,6 +48,7 @@ type ServiceClient interface {
 	GetGroupUsers(ctx context.Context, in *GetGroupUsersRequest, opts ...grpc.CallOption) (*GetGroupUsersResponse, error)
 	GroupSettleUp(ctx context.Context, in *GroupSettleUpRequest, opts ...grpc.CallOption) (*Empty, error)
 	GetUserPayersDebtorsInGroup(ctx context.Context, in *GetUserPayersDebtorsInGroupRequest, opts ...grpc.CallOption) (*GetUserPayersDebtorsInGroupResponse, error)
+	GetGroupDebts(ctx context.Context, in *GetGroupDebtsRequest, opts ...grpc.CallOption) (*GetGroupDebtsResponse, error)
 	CheckUserInGroup(ctx context.Context, in *CheckUserInGroupRequest, opts ...grpc.CallOption) (*CheckUserInGroupResponse, error)
 	MyProfile(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*MyProfileResponse, error)
 	ListMyGroups(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListMyGroupsResponse, error)
@@ -298,6 +299,15 @@ func (c *serviceClient) GetUserPayersDebtorsInGroup(ctx context.Context, in *Get
 	return out, nil
 }
 
+func (c *serviceClient) GetGroupDebts(ctx context.Context, in *GetGroupDebtsRequest, opts ...grpc.CallOption) (*GetGroupDebtsResponse, error) {
+	out := new(GetGroupDebtsResponse)
+	err := c.cc.Invoke(ctx, "/api.Service/GetGroupDebts", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *serviceClient) CheckUserInGroup(ctx context.Context, in *CheckUserInGroupRequest, opts ...grpc.CallOption) (*CheckUserInGroupResponse, error) {
 	out := new(CheckUserInGroupResponse)
 	err := c.cc.Invoke(ctx, "/api.Service/CheckUserInGroup", in, out, opts...)
@@ -382,6 +392,7 @@ type ServiceServer interface {
 	GetGroupUsers(context.Context, *GetGroupUsersRequest) (*GetGroupUsersResponse, error)
 	GroupSettleUp(context.Context, *GroupSettleUpRequest) (*Empty, error)
 	GetUserPayersDebtorsInGroup(context.Context, *GetUserPayersDebtorsInGroupRequest) (*GetUserPayersDebtorsInGroupResponse, error)
+	GetGroupDebts(context.Context, *GetGroupDebtsRequest) (*GetGroupDebtsResponse, error)
 	CheckUserInGroup(context.Context, *CheckUserInGroupRequest) (*CheckUserInGroupResponse, error)
 	MyProfile(context.Context, *Empty) (*MyProfileResponse, error)
 	ListMyGroups(context.Context, *Empty) (*ListMyGroupsResponse, error)
@@ -472,6 +483,9 @@ func (UnimplementedServiceServer) GroupSettleUp(context.Context, *GroupSettleUpR
 }
 func (UnimplementedServiceServer) GetUserPayersDebtorsInGroup(context.Context, *GetUserPayersDebtorsInGroupRequest) (*GetUserPayersDebtorsInGroupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserPayersDebtorsInGroup not implemented")
+}
+func (UnimplementedServiceServer) GetGroupDebts(context.Context, *GetGroupDebtsRequest) (*GetGroupDebtsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetGroupDebts not implemented")
 }
 func (UnimplementedServiceServer) CheckUserInGroup(context.Context, *CheckUserInGroupRequest) (*CheckUserInGroupResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckUserInGroup not implemented")
@@ -972,6 +986,24 @@ func _Service_GetUserPayersDebtorsInGroup_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Service_GetGroupDebts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGroupDebtsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ServiceServer).GetGroupDebts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Service/GetGroupDebts",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ServiceServer).GetGroupDebts(ctx, req.(*GetGroupDebtsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Service_CheckUserInGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CheckUserInGroupRequest)
 	if err := dec(in); err != nil {
@@ -1190,6 +1222,10 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserPayersDebtorsInGroup",
 			Handler:    _Service_GetUserPayersDebtorsInGroup_Handler,
+		},
+		{
+			MethodName: "GetGroupDebts",
+			Handler:    _Service_GetGroupDebts_Handler,
 		},
 		{
 			MethodName: "CheckUserInGroup",

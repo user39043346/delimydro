@@ -32,11 +32,17 @@ export default function DeleteExpenseForm({
 
   return (
     <FormBackground>
-      <AddExpenseForm title="Delete group" close={close}>
+      <AddExpenseForm title={`Delete ${expense.type === 1 ? 'settle up' : 'expense'}`} close={close}>
         <div className="h-[200px] w-[250px] p-2 pt-12 text-center">
-          <span>{`Are you sure want to delete expense `}</span>
-          <span className="font-bold">{expense.name}</span>
-          <span>?</span>
+          {expense.type === 1 ? (
+            <span>Are you sure want to delete this settle up?</span>
+          ) : (
+            <>
+              <span>{`Are you sure want to delete expense `}</span>
+              <span className="font-bold">{expense.name}</span>
+              <span>?</span>
+            </>
+          )}
         </div>
         <FormButton text="Delete" onClick={() => void deleteGroup()} />
       </AddExpenseForm>

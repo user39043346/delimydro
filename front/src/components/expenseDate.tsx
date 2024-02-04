@@ -6,7 +6,7 @@ export default function ExpenseDate({ time }: { time: Date | null }) {
   }
 
   return (
-    <div className="w-[24px]">
+    <div className="w-[24px] text-center">
       <div className="text-gray-500 text-[9px] font-bold">{months[time.getMonth()]}</div>
       <div className="text-gray-500 text-[11px] font-extrabold">{time.getDate()}</div>
     </div>
