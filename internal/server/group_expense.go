@@ -205,6 +205,10 @@ func (s *Server) DeleteGroupExpense(ctx context.Context, req *pb.DeleteGroupExpe
 		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
 	}
 
+	if _, err := tx.ExecContext(ctx, "UPDATE debts SET payer_id=debtor_id, debtor_id=payer_id, amount=-amount WHERE amount < 0"); err != nil {
+		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+	}
+
 	if _, err := tx.ExecContext(ctx, "DELETE FROM expenses WHERE id=$1", req.ExpenseId); err != nil {
 		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
 	}
@@ -405,7 +409,7 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 }
 
 func (s *Server) GroupSettleUp(ctx context.Context, req *pb.GroupSettleUpRequest) (*pb.Empty, error) {
-	if req.Amount <= 0 {
+	if req.Debt.Amount <= 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "Amount must be a positive number")
 	}
 
@@ -419,16 +423,16 @@ func (s *Server) GroupSettleUp(ctx context.Context, req *pb.GroupSettleUpRequest
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM groups WHERE id=$1 FOR UPDATE", req.GroupId).Scan(&x); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid group id")
 	}
-	if err := tx.QueryRowContext(ctx, "SELECT amount FROM debts WHERE group_id=$1 AND payer_id=$2 AND debtor_id=$3", req.GroupId, req.PayerId, req.DebtorId).Scan(&x); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT amount FROM debts WHERE group_id=$1 AND payer_id=$2 AND debtor_id=$3", req.GroupId, req.Debt.PayerId, req.Debt.DebtorId).Scan(&x); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "First user doesn't owe second user")
 	}
-	if req.Amount > x {
+	if req.Debt.Amount > x {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid amount")
 	}
 
 	diffs := []*models.Diff{
-		{UserId: req.PayerId, Diff: -req.Amount},
-		{UserId: req.DebtorId, Diff: req.Amount},
+		{UserId: req.Debt.PayerId, Diff: -req.Debt.Amount},
+		{UserId: req.Debt.DebtorId, Diff: req.Debt.Amount},
 	}
 
 	if err := addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
@@ -436,10 +440,10 @@ func (s *Server) GroupSettleUp(ctx context.Context, req *pb.GroupSettleUpRequest
 	}
 
 	expenseId := uuid.New()
-	if _, err := tx.ExecContext(ctx, "INSERT INTO expenses (id, group_id, payer_id, debtor_id, total_paid, name, type, time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", expenseId, req.GroupId, req.PayerId, req.DebtorId, req.Amount, "Settle up", 1, time.Now()); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO expenses (id, group_id, payer_id, debtor_id, total_paid, name, type, time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", expenseId, req.GroupId, req.Debt.PayerId, req.Debt.DebtorId, req.Debt.Amount, "Settle up", 1, time.Now()); err != nil {
 		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO expense_items (expense_id, payer_id, debtor_id, amount) VALUES ($1, $2, $3, $4)`, expenseId, req.DebtorId, req.PayerId, req.Amount); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO expense_items (expense_id, payer_id, debtor_id, amount) VALUES ($1, $2, $3, $4)`, expenseId, req.Debt.DebtorId, req.Debt.PayerId, req.Debt.Amount); err != nil {
 		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
 	}
 

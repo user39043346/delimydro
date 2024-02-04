@@ -32,7 +32,7 @@ export default function SettleUp({
 
   const createSettleUp = async () => {
     try {
-      await client.groupSettleUp({ groupId, payerId: payee?.id, debtorId: payer?.id, amount });
+      await client.groupSettleUp({ groupId, debt: { payerId: payee?.id, debtorId: payer?.id, amount } });
       save();
       close();
     } catch (e) {

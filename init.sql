@@ -1,9 +1,9 @@
 CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY,
-    image_path      VARCHAR(32),
-    username        VARCHAR(32) NOT NULL UNIQUE,
-    password_hash   VARCHAR(32),
-    code            VARCHAR(32) NOT NULL UNIQUE
+    image_path      VARCHAR(128),
+    username        VARCHAR(128) NOT NULL UNIQUE,
+    password_hash   VARCHAR(128),
+    code            VARCHAR(128) NOT NULL UNIQUE
 );
 CREATE INDEX idx_users_id ON users(id);
 CREATE INDEX idx_users_code ON users(code);
@@ -22,10 +22,10 @@ CREATE INDEX idx_friends_id2 ON friends(debtor_id);
 
 CREATE TABLE IF NOT EXISTS groups (
     id          UUID PRIMARY KEY,
-    name        VARCHAR(32) NOT NULL,
-    image_path  VARCHAR(32),
-    invite_code VARCHAR(32) NOT NULL UNIQUE,
-    type        INTEGER     -- group type (0 - don't compress debts / 1 - compress)
+    name        VARCHAR(128) NOT NULL,
+    image_path  VARCHAR(128),
+    invite_code VARCHAR(128) NOT NULL UNIQUE,
+    type        INTEGER
 );
 CREATE INDEX idx_groups_id ON groups(id);
 
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS debts (
     payer_id    UUID REFERENCES users(id),
     debtor_id   UUID REFERENCES users(id),
     amount      INTEGER,
-    type        INTEGER     -- debt type (0 - non-compressed / 1 - compressed)
+    type        INTEGER
 );
 CREATE INDEX idx_debts_gid_type ON debts(group_id, type);
 CREATE INDEX idx_debts_debtor_payer ON debts(debtor_id, payer_id);
@@ -59,8 +59,8 @@ CREATE TABLE IF NOT EXISTS expenses (
     payer_id    UUID REFERENCES users(id),
     debtor_id   UUID REFERENCES users(id),
     total_paid  INTEGER,
-    name        VARCHAR(32) NOT NULL,
-    type        INTEGER,    -- expense type (0 - new expense in group / 1 - sb paid part of expense in group)
+    name        VARCHAR(128) NOT NULL,
+    type        INTEGER,
     time        TIMESTAMP
 );
 CREATE INDEX idx_expenses_id ON expenses(id);
@@ -76,4 +76,3 @@ CREATE TABLE IF NOT EXISTS expense_items (
     CONSTRAINT eid_uid PRIMARY KEY (expense_id, payer_id, debtor_id)
 );
 CREATE INDEX idx_expense_items_eid ON expense_items(expense_id);
-CREATE INDEX idx_expense_items_uid ON expense_items(user_id);

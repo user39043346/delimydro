@@ -342,3 +342,28 @@ func (s *Server) GetUserPayersDebtorsInGroup(ctx context.Context, req *pb.GetUse
 
 	return &pb.GetUserPayersDebtorsInGroupResponse{Debtors: debtors, Payers: payers}, nil
 }
+
+func (s *Server) GetGroupDebts(ctx context.Context, req *pb.GetGroupDebtsRequest) (*pb.GetGroupDebtsResponse, error) {
+	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Couldn't get group debts")
+	}
+	defer tx.Rollback()
+
+	rows, err := tx.QueryxContext(ctx, `SELECT payer_id, debtor_id, amount FROM debts
+											JOIN groups ON groups.id=group_id AND debts.type=groups.type
+											WHERE group_id=$1`, req.GroupId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Couldn't get group debts")
+	}
+
+	var debts []*pb.Debt
+	for rows.Next() {
+		var x models.Debt
+		if err := rows.StructScan(&x); err != nil {
+			return nil, status.Errorf(codes.Internal, "Couldn't get group debts")
+		}
+		debts = append(debts, x.ToProto())
+	}
+	return &pb.GetGroupDebtsResponse{Debts: debts}, nil
+}

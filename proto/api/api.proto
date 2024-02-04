@@ -36,6 +36,7 @@ service Service {
     rpc GetGroupUsers(GetGroupUsersRequest) returns (GetGroupUsersResponse);
     rpc GroupSettleUp(GroupSettleUpRequest) returns (Empty);
     rpc GetUserPayersDebtorsInGroup(GetUserPayersDebtorsInGroupRequest) returns (GetUserPayersDebtorsInGroupResponse);
+    rpc GetGroupDebts(GetGroupDebtsRequest) returns (GetGroupDebtsResponse);
     rpc CheckUserInGroup(CheckUserInGroupRequest) returns (CheckUserInGroupResponse);
 
     rpc MyProfile(Empty) returns (MyProfileResponse);
@@ -52,6 +53,14 @@ message Token {
 }
 
 message Empty {}
+
+message GetGroupDebtsRequest {
+    string group_id = 1;
+}
+
+message GetGroupDebtsResponse {
+    repeated Debt debts = 1;
+}
 
 message SearchGroupRequest {
     string invite_code = 1;
@@ -260,11 +269,15 @@ message ChangeGroupTypeRequest {
     int64  new_type = 2;
 }
 
+message Debt {
+    string payer_id = 1;
+    string debtor_id = 2;
+    int64  amount = 3;
+}
+
 message GroupSettleUpRequest {
     string group_id = 1;
-    string payer_id = 2;
-    string debtor_id = 3;
-    int64  amount = 4;
+    Debt   debt = 2;
 }
 
 message GetUserPayersDebtorsInGroupRequest {
@@ -309,5 +322,5 @@ message ExpenseInfoRequest {
 }
 
 message ExpenseInfoResponse {
-    repeated User users_distribution = 1;
+    repeated Debt users_distribution = 1;
 }

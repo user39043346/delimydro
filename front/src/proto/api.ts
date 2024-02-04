@@ -13,6 +13,14 @@ export interface Token {
 export interface Empty {
 }
 
+export interface GetGroupDebtsRequest {
+  groupId: string;
+}
+
+export interface GetGroupDebtsResponse {
+  debts: Debt[];
+}
+
 export interface SearchGroupRequest {
   inviteCode: string;
 }
@@ -220,11 +228,15 @@ export interface ChangeGroupTypeRequest {
   newType: number;
 }
 
-export interface GroupSettleUpRequest {
-  groupId: string;
+export interface Debt {
   payerId: string;
   debtorId: string;
   amount: number;
+}
+
+export interface GroupSettleUpRequest {
+  groupId: string;
+  debt: Debt | undefined;
 }
 
 export interface GetUserPayersDebtorsInGroupRequest {
@@ -269,7 +281,7 @@ export interface ExpenseInfoRequest {
 }
 
 export interface ExpenseInfoResponse {
-  usersDistribution: User[];
+  usersDistribution: Debt[];
 }
 
 function createBaseToken(): Token {
@@ -347,6 +359,96 @@ export const Empty = {
   },
   fromPartial(_: DeepPartial<Empty>): Empty {
     const message = createBaseEmpty();
+    return message;
+  },
+};
+
+function createBaseGetGroupDebtsRequest(): GetGroupDebtsRequest {
+  return { groupId: "" };
+}
+
+export const GetGroupDebtsRequest = {
+  encode(message: GetGroupDebtsRequest, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.groupId !== "") {
+      writer.uint32(10).string(message.groupId);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetGroupDebtsRequest {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetGroupDebtsRequest();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.groupId = reader.string();
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  create(base?: DeepPartial<GetGroupDebtsRequest>): GetGroupDebtsRequest {
+    return GetGroupDebtsRequest.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<GetGroupDebtsRequest>): GetGroupDebtsRequest {
+    const message = createBaseGetGroupDebtsRequest();
+    message.groupId = object.groupId ?? "";
+    return message;
+  },
+};
+
+function createBaseGetGroupDebtsResponse(): GetGroupDebtsResponse {
+  return { debts: [] };
+}
+
+export const GetGroupDebtsResponse = {
+  encode(message: GetGroupDebtsResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    for (const v of message.debts) {
+      Debt.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): GetGroupDebtsResponse {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGetGroupDebtsResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.debts.push(Debt.decode(reader, reader.uint32()));
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  create(base?: DeepPartial<GetGroupDebtsResponse>): GetGroupDebtsResponse {
+    return GetGroupDebtsResponse.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<GetGroupDebtsResponse>): GetGroupDebtsResponse {
+    const message = createBaseGetGroupDebtsResponse();
+    message.debts = object.debts?.map((e) => Debt.fromPartial(e)) || [];
     return message;
   },
 };
@@ -2679,8 +2781,75 @@ export const ChangeGroupTypeRequest = {
   },
 };
 
+function createBaseDebt(): Debt {
+  return { payerId: "", debtorId: "", amount: 0 };
+}
+
+export const Debt = {
+  encode(message: Debt, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
+    if (message.payerId !== "") {
+      writer.uint32(10).string(message.payerId);
+    }
+    if (message.debtorId !== "") {
+      writer.uint32(18).string(message.debtorId);
+    }
+    if (message.amount !== 0) {
+      writer.uint32(24).int64(message.amount);
+    }
+    return writer;
+  },
+
+  decode(input: _m0.Reader | Uint8Array, length?: number): Debt {
+    const reader = input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDebt();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          if (tag !== 10) {
+            break;
+          }
+
+          message.payerId = reader.string();
+          continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.debtorId = reader.string();
+          continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.amount = longToNumber(reader.int64() as Long);
+          continue;
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  create(base?: DeepPartial<Debt>): Debt {
+    return Debt.fromPartial(base ?? {});
+  },
+  fromPartial(object: DeepPartial<Debt>): Debt {
+    const message = createBaseDebt();
+    message.payerId = object.payerId ?? "";
+    message.debtorId = object.debtorId ?? "";
+    message.amount = object.amount ?? 0;
+    return message;
+  },
+};
+
 function createBaseGroupSettleUpRequest(): GroupSettleUpRequest {
-  return { groupId: "", payerId: "", debtorId: "", amount: 0 };
+  return { groupId: "", debt: undefined };
 }
 
 export const GroupSettleUpRequest = {
@@ -2688,14 +2857,8 @@ export const GroupSettleUpRequest = {
     if (message.groupId !== "") {
       writer.uint32(10).string(message.groupId);
     }
-    if (message.payerId !== "") {
-      writer.uint32(18).string(message.payerId);
-    }
-    if (message.debtorId !== "") {
-      writer.uint32(26).string(message.debtorId);
-    }
-    if (message.amount !== 0) {
-      writer.uint32(32).int64(message.amount);
+    if (message.debt !== undefined) {
+      Debt.encode(message.debt, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
@@ -2719,21 +2882,7 @@ export const GroupSettleUpRequest = {
             break;
           }
 
-          message.payerId = reader.string();
-          continue;
-        case 3:
-          if (tag !== 26) {
-            break;
-          }
-
-          message.debtorId = reader.string();
-          continue;
-        case 4:
-          if (tag !== 32) {
-            break;
-          }
-
-          message.amount = longToNumber(reader.int64() as Long);
+          message.debt = Debt.decode(reader, reader.uint32());
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -2750,9 +2899,7 @@ export const GroupSettleUpRequest = {
   fromPartial(object: DeepPartial<GroupSettleUpRequest>): GroupSettleUpRequest {
     const message = createBaseGroupSettleUpRequest();
     message.groupId = object.groupId ?? "";
-    message.payerId = object.payerId ?? "";
-    message.debtorId = object.debtorId ?? "";
-    message.amount = object.amount ?? 0;
+    message.debt = (object.debt !== undefined && object.debt !== null) ? Debt.fromPartial(object.debt) : undefined;
     return message;
   },
 };
@@ -3224,7 +3371,7 @@ function createBaseExpenseInfoResponse(): ExpenseInfoResponse {
 export const ExpenseInfoResponse = {
   encode(message: ExpenseInfoResponse, writer: _m0.Writer = _m0.Writer.create()): _m0.Writer {
     for (const v of message.usersDistribution) {
-      User.encode(v!, writer.uint32(10).fork()).ldelim();
+      Debt.encode(v!, writer.uint32(10).fork()).ldelim();
     }
     return writer;
   },
@@ -3241,7 +3388,7 @@ export const ExpenseInfoResponse = {
             break;
           }
 
-          message.usersDistribution.push(User.decode(reader, reader.uint32()));
+          message.usersDistribution.push(Debt.decode(reader, reader.uint32()));
           continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
@@ -3257,7 +3404,7 @@ export const ExpenseInfoResponse = {
   },
   fromPartial(object: DeepPartial<ExpenseInfoResponse>): ExpenseInfoResponse {
     const message = createBaseExpenseInfoResponse();
-    message.usersDistribution = object.usersDistribution?.map((e) => User.fromPartial(e)) || [];
+    message.usersDistribution = object.usersDistribution?.map((e) => Debt.fromPartial(e)) || [];
     return message;
   },
 };
@@ -3475,6 +3622,14 @@ export const ServiceDefinition = {
       responseStream: false,
       options: {},
     },
+    getGroupDebts: {
+      name: "GetGroupDebts",
+      requestType: GetGroupDebtsRequest,
+      requestStream: false,
+      responseType: GetGroupDebtsResponse,
+      responseStream: false,
+      options: {},
+    },
     checkUserInGroup: {
       name: "CheckUserInGroup",
       requestType: CheckUserInGroupRequest,
@@ -3598,6 +3753,10 @@ export interface ServiceImplementation<CallContextExt = {}> {
     request: GetUserPayersDebtorsInGroupRequest,
     context: CallContext & CallContextExt,
   ): Promise<DeepPartial<GetUserPayersDebtorsInGroupResponse>>;
+  getGroupDebts(
+    request: GetGroupDebtsRequest,
+    context: CallContext & CallContextExt,
+  ): Promise<DeepPartial<GetGroupDebtsResponse>>;
   checkUserInGroup(
     request: CheckUserInGroupRequest,
     context: CallContext & CallContextExt,
@@ -3684,6 +3843,10 @@ export interface ServiceClient<CallOptionsExt = {}> {
     request: DeepPartial<GetUserPayersDebtorsInGroupRequest>,
     options?: CallOptions & CallOptionsExt,
   ): Promise<GetUserPayersDebtorsInGroupResponse>;
+  getGroupDebts(
+    request: DeepPartial<GetGroupDebtsRequest>,
+    options?: CallOptions & CallOptionsExt,
+  ): Promise<GetGroupDebtsResponse>;
   checkUserInGroup(
     request: DeepPartial<CheckUserInGroupRequest>,
     options?: CallOptions & CallOptionsExt,
