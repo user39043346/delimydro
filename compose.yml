@@ -1,10 +1,22 @@
 services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - 1234:1234
+    environment:
+      PG_DSN: "host=db user=app password=app dbname=app sslmode=disable"
+      JWT_SECRET_KEY: "change_me"
+  nginx:
+    build:
+      context: .
+      dockerfile: ./configs/nginx/Dockerfile
+    restart: unless-stopped
+    ports:
+      - 8080:80
   db:
     image: postgres:latest
     restart: unless-stopped
-    # command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all -c max_connections=200
-    ports:
-      - 5432:5432
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
@@ -17,14 +29,12 @@ services:
     image: prom/prometheus:latest
     restart: unless-stopped
     volumes:
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    network_mode: host
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
   grafana:
     image: grafana/grafana:latest
     restart: unless-stopped
     ports:
       - 3000:3000
-    network_mode: host
 
 volumes:
   postgres-data:

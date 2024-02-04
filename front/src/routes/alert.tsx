@@ -11,7 +11,6 @@ export default function ErrorAlertProvider({ children }: { children: React.React
   const [error, setError] = useState<unknown>(null);
 
   if (error instanceof ClientError) {
-    console.log(error);
     setTimeout(() => setError(null), 3000);
   }
 

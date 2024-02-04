@@ -28,12 +28,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var addr = flag.String("addr", "127.0.0.1:1234", "Address to serve on")
+var addr = flag.String("addr", "0.0.0.0:1234", "Address to serve on")
 
 func main() {
 	flag.Parse()
 
-	db, err := sqlx.Open("postgres", "host=localhost user=app password=app dbname=app sslmode=disable")
+	db, err := sqlx.Open("postgres", os.Getenv("PG_DSN"))
 	if err != nil {
 		log.Fatalf("db connect error: %v", err)
 	}
