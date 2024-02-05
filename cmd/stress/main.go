@@ -28,7 +28,7 @@ func main() {
 			check(err)
 
 			N := 30
-			K := 1000
+			K := 10000
 			ctx := make([]context.Context, N)
 			users := make([]*pb.User, N)
 			for i := range users {
@@ -42,11 +42,12 @@ func main() {
 				}
 				token := resp.Token
 				ctx[i] = utils.ContextWithToken(token)
-				users[i], err = c.MyProfile(ctx[i], &pb.Empty{})
+				x, err := c.MyProfile(ctx[i], &pb.Empty{})
 				if err != nil {
 					log.Println(err)
 					return
 				}
+				users[i] = x.User
 			}
 
 			usersIds := make([]string, N)
@@ -89,10 +90,19 @@ func main() {
 					diffsMap[usersIds[i]] += x
 					s += x
 				}
+				var payers, debtors []*pb.Diff
+				for _, diff := range diffs {
+					if diff.Diff > 0 {
+						payers = append(payers, diff)
+					} else {
+						debtors = append(debtors, diff)
+					}
+				}
 				addExpenseReq := &pb.CreateGroupExpenseRequest{
 					GroupId:     groupId,
 					ExpenseName: utils.GetValidString(10),
-					Diffs:       diffs,
+					Payers:      payers,
+					Debtors:     debtors,
 				}
 				_, err = c.CreateGroupExpense(ctx[0], addExpenseReq)
 				check(err)
