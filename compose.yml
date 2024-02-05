@@ -2,6 +2,7 @@ services:
   api:
     build: .
     restart: unless-stopped
+    hostname: api
     ports:
       - 1234:1234
     environment:
@@ -35,6 +36,10 @@ services:
     restart: unless-stopped
     ports:
       - 3000:3000
+    volumes:
+      - ./configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/main.yml:ro
+      - ./configs/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/main.yml:ro
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards
 
 volumes:
   postgres-data:

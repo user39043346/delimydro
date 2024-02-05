@@ -54,8 +54,8 @@ func main() {
 
 	srv := server.NewServer(db, os.Getenv("JWT_SECRET_KEY"))
 	s := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		server.TimeoutInterceptor,
 		metrics.UnaryServerInterceptor(),
+		server.TimeoutInterceptor,
 		srv.AuthInterceptor(),
 	))
 	pb.RegisterServiceServer(s, srv)
@@ -71,7 +71,7 @@ func main() {
 	metricsHandler.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 	metricsServer := http.Server{
 		Handler: metricsHandler,
-		Addr:    "127.0.0.1:2112",
+		Addr:    "0.0.0.0:2112",
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
