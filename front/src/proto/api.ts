@@ -3438,14 +3438,6 @@ export const ServiceDefinition = {
       responseStream: false,
       options: {},
     },
-    searchFriend: {
-      name: "SearchFriend",
-      requestType: SearchFriendRequest,
-      requestStream: false,
-      responseType: SearchFriendResponse,
-      responseStream: false,
-      options: {},
-    },
     addFriend: {
       name: "AddFriend",
       requestType: AddFriendRequest,
@@ -3685,10 +3677,6 @@ export interface ServiceImplementation<CallContextExt = {}> {
   register(request: RegisterRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Token>>;
   login(request: LoginRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Token>>;
   renewToken(request: Empty, context: CallContext & CallContextExt): Promise<DeepPartial<Token>>;
-  searchFriend(
-    request: SearchFriendRequest,
-    context: CallContext & CallContextExt,
-  ): Promise<DeepPartial<SearchFriendResponse>>;
   addFriend(request: AddFriendRequest, context: CallContext & CallContextExt): Promise<DeepPartial<Empty>>;
   listMyFriends(request: Empty, context: CallContext & CallContextExt): Promise<DeepPartial<ListMyFriendsResponse>>;
   createFriendExpense(
@@ -3775,10 +3763,6 @@ export interface ServiceClient<CallOptionsExt = {}> {
   register(request: DeepPartial<RegisterRequest>, options?: CallOptions & CallOptionsExt): Promise<Token>;
   login(request: DeepPartial<LoginRequest>, options?: CallOptions & CallOptionsExt): Promise<Token>;
   renewToken(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): Promise<Token>;
-  searchFriend(
-    request: DeepPartial<SearchFriendRequest>,
-    options?: CallOptions & CallOptionsExt,
-  ): Promise<SearchFriendResponse>;
   addFriend(request: DeepPartial<AddFriendRequest>, options?: CallOptions & CallOptionsExt): Promise<Empty>;
   listMyFriends(request: DeepPartial<Empty>, options?: CallOptions & CallOptionsExt): Promise<ListMyFriendsResponse>;
   createFriendExpense(

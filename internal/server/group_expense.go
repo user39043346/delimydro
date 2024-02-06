@@ -71,19 +71,25 @@ func calcItems(diffs []*models.Diff) ([]*Item, error) {
 }
 
 func (s *Server) CreateGroupExpense(ctx context.Context, req *pb.CreateGroupExpenseRequest) (*pb.Empty, error) {
+	ctx, frame := s.tracer.Frame(ctx, "CreateGroupExpense")
+	defer frame.End()
+
 	if req.ExpenseName == "" {
+		frame.Errorf("expense_name == \"\"")
 		return nil, status.Errorf(codes.InvalidArgument, "Empty expense name")
 	}
 
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+		frame.Errorf("BeginTx err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
 	defer tx.Rollback()
 
 	var x int
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM groups WHERE id=$1 FOR UPDATE", req.GroupId).Scan(&x); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid group id")
+		frame.Errorf("SELECT FROM groups err: %v", err)
+		return nil, errInvalidGroupId
 	}
 
 	m := make(map[string]int64)
@@ -101,8 +107,9 @@ func (s *Server) CreateGroupExpense(ctx context.Context, req *pb.CreateGroupExpe
 		d := &models.Diff{UserId: id, Diff: diff}
 		diffs = append(diffs, d)
 	}
-	if err := addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+	if err := s.addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
+		frame.Errorf("addGroupExpense err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
 
 	payersCnt := 0
@@ -121,12 +128,14 @@ func (s *Server) CreateGroupExpense(ctx context.Context, req *pb.CreateGroupExpe
 
 	expenseId := uuid.New()
 	if _, err := tx.ExecContext(ctx, "INSERT INTO expenses (id, group_id, payer_id, total_paid, name, type, time) VALUES ($1, $2, $3, $4, $5, $6, $7)", expenseId, req.GroupId, payerId, totalPaid, req.ExpenseName, 0, time.Now()); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+		frame.Errorf("INSERT INTO expenses err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
 
 	items, err := calcItems(diffs)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+		frame.Errorf("calcItems err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
 
 	values := make([]string, 0, len(items))
@@ -150,38 +159,47 @@ func (s *Server) CreateGroupExpense(ctx context.Context, req *pb.CreateGroupExpe
 	query := fmt.Sprintf(queryTmpl, strings.Join(values, ","))
 
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+		frame.Errorf("INSERT INTO expense_items err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
 
 	if err = tx.Commit(); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create expense")
+		frame.Errorf("tx commit err: %v", err)
+		return nil, errCouldntCreateExpense
 	}
-
+	frame.Printf("expense_id", expenseId)
 	return &pb.Empty{}, nil
 }
 
 func (s *Server) DeleteGroupExpense(ctx context.Context, req *pb.DeleteGroupExpenseRequest) (*pb.Empty, error) {
+	ctx, frame := s.tracer.Frame(ctx, "DeleteGroupExpense")
+	defer frame.End()
+
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+		frame.Errorf("BeginTx err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 	defer tx.Rollback()
 
 	var x int
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM groups WHERE id=$1 FOR UPDATE", req.GroupId).Scan(&x); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid group id")
+		frame.Errorf("SELECT FROM groups err: %v", err)
+		return nil, errInvalidGroupId
 	}
 
 	myId := ctx.Value(ctxIdKey).(string)
 	if err := tx.QueryRowContext(ctx, `SELECT 1 FROM expenses 
 											JOIN user_group ON user_group.group_id=expenses.group_id 
 											WHERE expenses.id=$1 AND user_group.group_id=$2 AND user_group.user_id=$3`, req.ExpenseId, req.GroupId, myId).Scan(&x); err != nil {
+		frame.Errorf("SELECT FROM expenses JOIN user_group err: %v", err)
 		return nil, status.Errorf(codes.Internal, "Invalid expense or group id")
 	}
 
 	rows, err := tx.QueryxContext(ctx, "SELECT payer_id, debtor_id, amount FROM expense_items WHERE expense_id=$1", req.ExpenseId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+		frame.Errorf("SELECT FROM expense_items err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 	defer rows.Close()
 
@@ -190,7 +208,7 @@ func (s *Server) DeleteGroupExpense(ctx context.Context, req *pb.DeleteGroupExpe
 		var payerId, debtorId string
 		var amount int64
 		if err := rows.Scan(&payerId, &debtorId, &amount); err != nil {
-			return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+			return nil, errCouldntDeleteExpense
 		}
 		m[payerId] -= amount
 		m[debtorId] += amount
@@ -201,29 +219,38 @@ func (s *Server) DeleteGroupExpense(ctx context.Context, req *pb.DeleteGroupExpe
 		diffs = append(diffs, &models.Diff{UserId: id, Diff: amount})
 	}
 
-	if err := addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+	if err := s.addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
+		frame.Errorf("addGroupExpense err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 
 	if _, err := tx.ExecContext(ctx, "UPDATE debts SET payer_id=debtor_id, debtor_id=payer_id, amount=-amount WHERE amount < 0"); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+		frame.Errorf("UPDATE debts err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 
 	if _, err := tx.ExecContext(ctx, "DELETE FROM expenses WHERE id=$1", req.ExpenseId); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+		frame.Errorf("DELETE FROM expenses err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't delete expense")
+		frame.Errorf("tx commit err: %v", err)
+		return nil, errCouldntDeleteExpense
 	}
 
+	frame.Printf("expense_id", req.ExpenseId)
 	return &pb.Empty{}, nil
 }
 
 func (s *Server) ListGroupExpenses(ctx context.Context, req *pb.ListGroupExpensesRequest) (*pb.ListGroupExpensesResponse, error) {
+	ctx, frame := s.tracer.Frame(ctx, "ListGroupExpenses")
+	defer frame.End()
+
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't list expenses")
+		frame.Errorf("BeginTx err: %v", err)
+		return nil, errCouldntListExpenses
 	}
 	defer tx.Rollback()
 
@@ -237,7 +264,8 @@ func (s *Server) ListGroupExpenses(ctx context.Context, req *pb.ListGroupExpense
 											ORDER BY time DESC
 											LIMIT $2 OFFSET $3`, req.GroupId, req.N, req.Offset, myId)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't list expenses")
+		frame.Errorf("SELECT (SELECT FROM expense_items) FROM expenses JOIN users JOIN users err: %v", err)
+		return nil, errCouldntListExpenses
 	}
 	defer rows.Close()
 
@@ -245,25 +273,31 @@ func (s *Server) ListGroupExpenses(ctx context.Context, req *pb.ListGroupExpense
 	for rows.Next() {
 		var x models.Expense
 		if err := rows.StructScan(&x); err != nil {
-			return nil, status.Errorf(codes.Internal, "Couldn't list expenses")
+			frame.Errorf("Expense scan err: %v", err)
+			return nil, errCouldntListExpenses
 		}
 		expenses = append(expenses, x.ToProto())
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't list expenses")
+		frame.Errorf("tx commit err: %v", err)
+		return nil, errCouldntListExpenses
 	}
-
+	frame.Printf("group_id", req.GroupId, "len(expenses)", len(expenses))
 	return &pb.ListGroupExpensesResponse{Expenses: expenses}, nil
 }
 
-func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, groupId string) error {
+func (s *Server) addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, groupId string) error {
+	ctx, frame := s.tracer.Frame(ctx, "addGroupExpense")
+	defer frame.End()
+
 	diffCopy := make([]*models.Diff, 0, len(diffs))
 	for _, diff := range diffs {
 		diffCopy = append(diffCopy, &models.Diff{UserId: diff.UserId, Diff: diff.Diff})
 	}
 	items, err := calcItems(diffCopy)
 	if err != nil {
+		frame.Errorf("calcItems err: %v", err)
 		return err
 	}
 
@@ -286,6 +320,7 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 
 	rows, err := tx.QueryxContext(ctx, query, args...)
 	if err != nil {
+		frame.Errorf("SELECT FROM debts err: %v", err)
 		return err
 	}
 	defer rows.Close()
@@ -298,6 +333,7 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 	for rows.Next() {
 		var x Item
 		if err := rows.StructScan(&x); err != nil {
+			frame.Errorf("Item scan err: %v", err)
 			return err
 		}
 		values = append(values, fmt.Sprintf("($%d, $%d, $%d)", i+1, i+2, i+3))
@@ -319,11 +355,13 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 		query = fmt.Sprintf(queryTmpl, strings.Join(values, ","))
 
 		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			frame.Errorf("UPDATE debts err: %v", err)
 			return err
 		}
 	}
 
 	if _, err := tx.ExecContext(ctx, "DELETE FROM debts WHERE group_id=$1 AND type=0 AND amount=0", groupId); err != nil {
+		frame.Errorf("DELETE FROM debts err: %v", err)
 		return err
 	}
 
@@ -343,11 +381,13 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 		query = fmt.Sprintf(queryTmpl, strings.Join(values, ","))
 
 		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			frame.Errorf("INSERT INTO debts err: %v", err)
 			return err
 		}
 	}
 
 	if _, err := tx.ExecContext(ctx, "DELETE FROM debts WHERE group_id=$1 AND type=1", groupId); err != nil {
+		frame.Errorf("DELETE FROM debts err: %v", err)
 		return err
 	}
 
@@ -363,11 +403,13 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 					WHERE ug1.group_id=$1 AND ug1.user_id=UUID(ug2.user_id)`
 	query = fmt.Sprintf(queryTmpl, strings.Join(values, ","))
 	if _, err = tx.ExecContext(ctx, query, args...); err != nil {
+		frame.Errorf("UPDATE user_group err: %v", err)
 		return err
 	}
 
 	rows, err = tx.QueryxContext(ctx, "SELECT user_id, balance AS diff FROM user_group WHERE group_id=$1", groupId)
 	if err != nil {
+		frame.Errorf("SELECT FROM user_group err: %v", err)
 		return err
 
 	}
@@ -377,6 +419,7 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 	for rows.Next() {
 		var diff models.Diff
 		if err := rows.StructScan(&diff); err != nil {
+			frame.Errorf("Diff scan err: %v", err)
 			return err
 		}
 		newDiffs = append(newDiffs, &diff)
@@ -384,6 +427,7 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 
 	items, err = calcItems(newDiffs)
 	if err != nil {
+		frame.Errorf("calcItems err: %v", err)
 		return err
 	}
 
@@ -401,32 +445,41 @@ func addGroupExpense(ctx context.Context, tx *sqlx.Tx, diffs []*models.Diff, gro
 		query = fmt.Sprintf(queryTmpl, strings.Join(values, ","))
 
 		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+			frame.Errorf("INSERT INTO debts err: %v", err)
 			return err
 		}
 	}
-
+	frame.Printf("status", "ok")
 	return nil
 }
 
 func (s *Server) GroupSettleUp(ctx context.Context, req *pb.GroupSettleUpRequest) (*pb.Empty, error) {
+	ctx, frame := s.tracer.Frame(ctx, "GroupSettleUp")
+	defer frame.End()
+
 	if req.Debt.Amount <= 0 {
+		frame.Errorf("Amount <= 0, amount: %v", req.Debt.Amount)
 		return nil, status.Errorf(codes.InvalidArgument, "Amount must be a positive number")
 	}
 
 	tx, err := s.db.BeginTxx(ctx, &sql.TxOptions{})
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
+		frame.Errorf("BeginTx err: %v", err)
+		return nil, errCouldntSettleUp
 	}
 	defer tx.Rollback()
 
 	var x int64
 	if err := tx.QueryRowContext(ctx, "SELECT 1 FROM groups WHERE id=$1 FOR UPDATE", req.GroupId).Scan(&x); err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Invalid group id")
+		frame.Errorf("SELECT FROM groups err: %v", err)
+		return nil, errInvalidGroupId
 	}
 	if err := tx.QueryRowContext(ctx, "SELECT amount FROM debts WHERE group_id=$1 AND payer_id=$2 AND debtor_id=$3", req.GroupId, req.Debt.PayerId, req.Debt.DebtorId).Scan(&x); err != nil {
+		frame.Errorf("SELECT FROM debts err: %v", err)
 		return nil, status.Errorf(codes.InvalidArgument, "First user doesn't owe second user")
 	}
 	if req.Debt.Amount > x {
+		frame.Errorf("amount > debt, amount=%v, debt=%v", req.Debt.Amount, x)
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid amount")
 	}
 
@@ -435,20 +488,24 @@ func (s *Server) GroupSettleUp(ctx context.Context, req *pb.GroupSettleUpRequest
 		{UserId: req.Debt.DebtorId, Diff: req.Debt.Amount},
 	}
 
-	if err := addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
+	if err := s.addGroupExpense(ctx, tx, diffs, req.GroupId); err != nil {
+		frame.Errorf("addGroupExpense err: %v", err)
+		return nil, errCouldntSettleUp
 	}
 
 	expenseId := uuid.New()
 	if _, err := tx.ExecContext(ctx, "INSERT INTO expenses (id, group_id, payer_id, debtor_id, total_paid, name, type, time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", expenseId, req.GroupId, req.Debt.PayerId, req.Debt.DebtorId, req.Debt.Amount, "Settle up", 1, time.Now()); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
+		frame.Errorf("INSERT INTO expenses err: %v", err)
+		return nil, errCouldntSettleUp
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO expense_items (expense_id, payer_id, debtor_id, amount) VALUES ($1, $2, $3, $4)`, expenseId, req.Debt.DebtorId, req.Debt.PayerId, req.Debt.Amount); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
+		frame.Errorf("INSERT INTO expense_items err: %v", err)
+		return nil, errCouldntSettleUp
 	}
 
 	if err = tx.Commit(); err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't settle up")
+		frame.Errorf("tx commit err: %v", err)
+		return nil, errCouldntSettleUp
 	}
 
 	return &pb.Empty{}, nil

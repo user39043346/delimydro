@@ -11,7 +11,6 @@ service Service {
     rpc Login(LoginRequest) returns (Token);
     rpc RenewToken(Empty) returns (Token);
 
-    rpc SearchFriend(SearchFriendRequest) returns (SearchFriendResponse);
     rpc AddFriend(AddFriendRequest) returns (Empty);
     rpc ListMyFriends(Empty) returns (ListMyFriendsResponse);
     rpc CreateFriendExpense(CreateFriendExpenseRequest) returns (Empty);
