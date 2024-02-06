@@ -21,6 +21,7 @@ export default function Root() {
   const errorContext = useRef(useContext(ErrorAlertContext));
   const authContext = useContext(AuthContext);
   const client = useServiceAuthorizedClient();
+
   const [me, setMe] = useState<MyProfileResponse | null>(null);
   const [addFriend, setAddFriend] = useState<boolean>(false);
   const [addGroup, setAddGroup] = useState<boolean>(false);

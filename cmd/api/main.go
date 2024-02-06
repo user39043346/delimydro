@@ -73,8 +73,9 @@ func main() {
 	s := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
-			metrics.UnaryServerInterceptor(),
 			server.TimeoutInterceptor,
+			server.TracerInterceptor,
+			metrics.UnaryServerInterceptor(),
 			srv.AuthInterceptor(),
 		))
 	pb.RegisterServiceServer(s, srv)
