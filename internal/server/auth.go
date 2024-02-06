@@ -14,45 +14,67 @@ import (
 )
 
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Token, error) {
+	ctx, frame := s.tracer.Frame(ctx, "Register")
+	defer frame.End()
+
 	if req.Username == "" || req.Password == "" {
+		frame.Errorf("username or password is empty")
 		return nil, status.Errorf(codes.Unauthenticated, "username or password is empty")
 	}
 	if len(req.Username) > 32 || len(req.Password) > 32 {
+		frame.Errorf("username or password length > 32")
 		return nil, status.Errorf(codes.Unauthenticated, "username or password length is greater than 32")
 	}
 	code, err := genCode()
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Couldn't create user")
+		frame.Errorf("genCode err: %v", err)
+		return nil, errCouldntCreateUser
 	}
-	user_id := uuid.New().String()
-	token, err := s.tm.NewToken(user_id)
+	userId := uuid.New().String()
+	token, err := s.tm.NewToken(userId)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "error creating token: %v", err)
+		frame.Errorf("token.TokenManager.NewToken: %v", err)
+		return nil, errCouldntCreateUser
 	}
-	if _, err := s.db.Exec("insert into users (id, username, image_path, password_hash, code) values ($1, $2, $3, $4, $5)", user_id, req.Username, req.ImagePath, hash(req.Password), code); err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "create user error: %v", err)
+	if _, err := s.db.ExecContext(ctx, "INSERT INTO users (id, username, image_path, password_hash, code) VALUES ($1, $2, $3, $4, $5)", userId, req.Username, req.ImagePath, hash(req.Password), code); err != nil {
+		frame.Errorf("db INSERT err: %v", err)
+		return nil, status.Error(codes.Unauthenticated, "User exists")
 	}
+	frame.Printf("token", token, "username", req.Username)
 	return &pb.Token{Token: token}, nil
 }
 
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Token, error) {
+	ctx, frame := s.tracer.Frame(ctx, "Login")
+	defer frame.End()
+
 	var id uuid.UUID
-	if err := s.db.QueryRow("select id from users where username=$1 and password_hash=$2", req.Username, hash(req.Password)).Scan(&id); err != nil {
+	if err := s.db.QueryRowContext(ctx, "SELECT id FROM users WHERE username=$1 AND password_hash=$2", req.Username, hash(req.Password)).Scan(&id); err != nil {
+		frame.Errorf("invalid username or password: (%s, %s)", req.Username, hash(req.Password))
 		return nil, status.Errorf(codes.Unauthenticated, "invalid username or password")
 	}
 	token, err := s.tm.NewToken(id.String())
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "error creating token: %v", err)
+		frame.Errorf("TokenManager.NewToken err: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "Couldn't login")
 	}
+
+	frame.Printf("token", token, "username", req.Username)
 	return &pb.Token{Token: token}, nil
 }
 
 func (s *Server) RenewToken(ctx context.Context, req *pb.Empty) (*pb.Token, error) {
+	ctx, frame := s.tracer.Frame(ctx, "RenewToken")
+	defer frame.End()
+
 	id := ctx.Value(ctxIdKey).(string)
 	token, err := s.tm.NewToken(id)
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "create token error: %v", err)
+		frame.Errorf("TokenManager.NewToken err: %v", err)
+		return nil, status.Errorf(codes.Unauthenticated, "Couldn't renew token")
 	}
+
+	frame.Printf("token", token, "id", id)
 	return &pb.Token{Token: token}, nil
 }
 

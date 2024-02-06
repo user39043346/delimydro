@@ -8,6 +8,8 @@ services:
     environment:
       PG_DSN: "host=db user=app password=app dbname=app sslmode=disable"
       JWT_SECRET_KEY: "change_me"
+      JAEGER_ADDR: jaeger:4317
+      METRICS_ADDR: 0.0.0.0:2112
   nginx:
     build:
       context: .
@@ -40,6 +42,16 @@ services:
       - ./configs/grafana/datasource.yml:/etc/grafana/provisioning/datasources/main.yml:ro
       - ./configs/grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/main.yml:ro
       - ./configs/grafana/dashboards:/var/lib/grafana/dashboards
-
+  jaeger:
+    image: jaegertracing/all-in-one:1.53
+    restart: unless-stopped
+    ports:
+      - 6831:6831/udp
+      - 5778:5778
+      - 16686:16686
+      - 4317:4317
+      - 14250:14250
+      - 14268:14268
+      - 14269:14269
 volumes:
   postgres-data:

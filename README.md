@@ -9,5 +9,5 @@ An app for managing expenses with other people. Allows easy addition of expenses
 ```
 docker compose up --build -d
 ```
-An app will be available on port 8080. Grafana port is 3000.
+An app will be available on port 8080, Grafana port is 3000, jaeger port is 16686.
 

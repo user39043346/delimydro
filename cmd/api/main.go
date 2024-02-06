@@ -12,6 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -19,6 +23,7 @@ import (
 
 	"github.com/user39043346/delimydro/internal/proxy"
 	"github.com/user39043346/delimydro/internal/server"
+	"github.com/user39043346/delimydro/internal/tracer"
 
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/jmoiron/sqlx"
@@ -33,8 +38,20 @@ var addr = flag.String("addr", "0.0.0.0:1234", "Address to serve on")
 func main() {
 	flag.Parse()
 
+	logger, err := zap.NewProduction()
+	if err != nil {
+		log.Fatalf("logger error: %v", err)
+	}
+
+	tp := tracer.NewTracerProvider(context.Background())
+	otel.SetTracerProvider(tp)
+	tracer := tp.Tracer("api")
+
 	db, err := sqlx.Open("postgres", os.Getenv("PG_DSN"))
 	if err != nil {
+		log.Fatalf("db connect error: %v", err)
+	}
+	if err := db.Ping(); err != nil {
 		log.Fatalf("db connect error: %v", err)
 	}
 	db.SetMaxOpenConns(64)
@@ -52,12 +69,14 @@ func main() {
 		collectors.NewDBStatsCollector(db.DB, "app"),
 	)
 
-	srv := server.NewServer(db, os.Getenv("JWT_SECRET_KEY"))
-	s := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		metrics.UnaryServerInterceptor(),
-		server.TimeoutInterceptor,
-		srv.AuthInterceptor(),
-	))
+	srv := server.NewServer(db, os.Getenv("JWT_SECRET_KEY"), tracer, logger)
+	s := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.ChainUnaryInterceptor(
+			metrics.UnaryServerInterceptor(),
+			server.TimeoutInterceptor,
+			srv.AuthInterceptor(),
+		))
 	pb.RegisterServiceServer(s, srv)
 	reflection.Register(s)
 
@@ -71,7 +90,7 @@ func main() {
 	metricsHandler.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 	metricsServer := http.Server{
 		Handler: metricsHandler,
-		Addr:    "0.0.0.0:2112",
+		Addr:    os.Getenv("METRICS_ADDR"),
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -93,6 +112,8 @@ func main() {
 		<-ctx.Done()
 		log.Println("Stopping server")
 
+		logger.Sync()
+
 		ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 		defer cancel()
 		ctx, cancel = context.WithTimeout(ctx, time.Second*5)
@@ -103,6 +124,9 @@ func main() {
 		}
 		if err := metricsServer.Shutdown(ctx); err != nil {
 			log.Fatalf("Failed to shutdown metrics server: %v", err)
+		}
+		if err := tp.Shutdown(ctx); err != nil {
+			log.Fatalf("Failed to shutdown tracer provider: %v", err)
 		}
 
 	}()

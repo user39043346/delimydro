@@ -25,7 +25,6 @@ type ServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*Token, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*Token, error)
 	RenewToken(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Token, error)
-	SearchFriend(ctx context.Context, in *SearchFriendRequest, opts ...grpc.CallOption) (*SearchFriendResponse, error)
 	AddFriend(ctx context.Context, in *AddFriendRequest, opts ...grpc.CallOption) (*Empty, error)
 	ListMyFriends(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ListMyFriendsResponse, error)
 	CreateFriendExpense(ctx context.Context, in *CreateFriendExpenseRequest, opts ...grpc.CallOption) (*Empty, error)
@@ -86,15 +85,6 @@ func (c *serviceClient) Login(ctx context.Context, in *LoginRequest, opts ...grp
 func (c *serviceClient) RenewToken(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Token, error) {
 	out := new(Token)
 	err := c.cc.Invoke(ctx, "/api.Service/RenewToken", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *serviceClient) SearchFriend(ctx context.Context, in *SearchFriendRequest, opts ...grpc.CallOption) (*SearchFriendResponse, error) {
-	out := new(SearchFriendResponse)
-	err := c.cc.Invoke(ctx, "/api.Service/SearchFriend", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +359,6 @@ type ServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*Token, error)
 	Login(context.Context, *LoginRequest) (*Token, error)
 	RenewToken(context.Context, *Empty) (*Token, error)
-	SearchFriend(context.Context, *SearchFriendRequest) (*SearchFriendResponse, error)
 	AddFriend(context.Context, *AddFriendRequest) (*Empty, error)
 	ListMyFriends(context.Context, *Empty) (*ListMyFriendsResponse, error)
 	CreateFriendExpense(context.Context, *CreateFriendExpenseRequest) (*Empty, error)
@@ -414,9 +403,6 @@ func (UnimplementedServiceServer) Login(context.Context, *LoginRequest) (*Token,
 }
 func (UnimplementedServiceServer) RenewToken(context.Context, *Empty) (*Token, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewToken not implemented")
-}
-func (UnimplementedServiceServer) SearchFriend(context.Context, *SearchFriendRequest) (*SearchFriendResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SearchFriend not implemented")
 }
 func (UnimplementedServiceServer) AddFriend(context.Context, *AddFriendRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddFriend not implemented")
@@ -568,24 +554,6 @@ func _Service_RenewToken_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ServiceServer).RenewToken(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Service_SearchFriend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SearchFriendRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ServiceServer).SearchFriend(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.Service/SearchFriend",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServiceServer).SearchFriend(ctx, req.(*SearchFriendRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1130,10 +1098,6 @@ var Service_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RenewToken",
 			Handler:    _Service_RenewToken_Handler,
-		},
-		{
-			MethodName: "SearchFriend",
-			Handler:    _Service_SearchFriend_Handler,
 		},
 		{
 			MethodName: "AddFriend",
